@@ -1,3 +1,6 @@
 *-bak
 *-cache.lib
 *.net
+*.gbr
+*.zip
+*-cache
