@@ -29,13 +29,81 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(ROTENC_B), encBLow_ISR, FALLING);
 }
 
+enum MenuState
+{
+  WELCOME,
+  MENUITEM_SETUP,
+  PATTERN,
+  COLOR,
+  BRIGHTNESS
+};
+MenuState currentState = WELCOME;
+MenuState nextState = WELCOME;
+
 bool prevButtonValue;
 bool currentButtonValue;
 unsigned long int timeOfLastPrint = 0;
 unsigned long int timeOfLastPress = 0;
 
+char* text = "Welcome";
+int storedEncPos = 0;
+
 void loop()
 {
+  switch(currentState)
+  {
+    case WELCOME:
+      text = "Welcome!";
+      if(millis() > 5000)
+      {
+        currentState = MENUITEM_SETUP;
+        nextState = PATTERN;
+      }
+      break;
+    case MENUITEM_SETUP:
+      storedEncPos = encPos;
+      currentState = nextState;
+      break;
+    case PATTERN:
+      text = "Select Pattern";
+      if(encPos > storedEncPos)
+      {
+        currentState = MENUITEM_SETUP;
+        nextState = COLOR;
+      }
+      if(encPos < storedEncPos)
+      {
+        currentState = MENUITEM_SETUP;
+        nextState = BRIGHTNESS;
+      }
+      break;
+    case COLOR:
+      text = "Select Color";
+      if(encPos > storedEncPos)
+      {
+        currentState = MENUITEM_SETUP;
+        nextState = BRIGHTNESS;
+      }
+      if(encPos < storedEncPos)
+      {
+        currentState = MENUITEM_SETUP;
+        nextState = PATTERN;
+      }
+      break;
+    case BRIGHTNESS:
+      text = "Select Brightness";
+      if(encPos > storedEncPos)
+      {
+        currentState = MENUITEM_SETUP;
+        nextState = PATTERN;
+      }
+      if(encPos < storedEncPos)
+      {
+        currentState = MENUITEM_SETUP;
+        nextState = COLOR;
+      }
+      break;
+  }
   currentButtonValue = digitalRead(ROTENC_BTN) == HIGH ? true : false;
   if(currentButtonValue && currentButtonValue != prevButtonValue)
   {
@@ -44,12 +112,10 @@ void loop()
   }
   prevButtonValue = currentButtonValue;
 
-  if( (millis() - timeOfLastPress) > 5000)
+  if( (millis() - timeOfLastPress) > 500)
   {
-    //Serial.print("Encoder Pos:");
-    //Serial.println(encPos);
     Serial.println();
-    Serial.println("Cleared");
+    Serial.println(text);
     Serial.println();
     timeOfLastPress = millis();
   }
