@@ -34,8 +34,18 @@ enum MenuState
   WELCOME,
   MENUITEM_SETUP,
   PATTERN,
+  PATTERN_SELECT,
   COLOR,
-  BRIGHTNESS
+  COLOR_SEL_PRESET,
+  COLOR_SEL_RED,
+  COLOR_SEL_GREEN,
+  COLOR_SEL_BLUE,
+  BRIGHTNESS,
+  BRIGHTNESS_SELECT,
+  PRESET,
+  PRESET_SELECT,
+  PRESET_SAVE,
+  POWEROFF
 };
 MenuState currentState = WELCOME;
 MenuState nextState = WELCOME;
@@ -49,6 +59,25 @@ char* text = "Welcome";
 int storedEncPos = 0;
 
 void loop()
+{
+  currentButtonValue = digitalRead(ROTENC_BTN) == HIGH ? true : false;
+  if(currentButtonValue && currentButtonValue != prevButtonValue)
+  {
+    Serial.println("BtnPressed");
+    timeOfLastPress = millis();
+  }
+  prevButtonValue = currentButtonValue;
+
+  if( (millis() - timeOfLastPress) > 500)
+  {
+    Serial.println();
+    Serial.println(text);
+    Serial.println();
+    timeOfLastPress = millis();
+  }
+}
+
+void runStateMachine()
 {
   switch(currentState)
   {
@@ -104,21 +133,7 @@ void loop()
       }
       break;
   }
-  currentButtonValue = digitalRead(ROTENC_BTN) == HIGH ? true : false;
-  if(currentButtonValue && currentButtonValue != prevButtonValue)
-  {
-    Serial.println("BtnPressed");
-    timeOfLastPress = millis();
-  }
-  prevButtonValue = currentButtonValue;
 
-  if( (millis() - timeOfLastPress) > 500)
-  {
-    Serial.println();
-    Serial.println(text);
-    Serial.println();
-    timeOfLastPress = millis();
-  }
 }
 
 void encALow_ISR()
