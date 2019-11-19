@@ -11,7 +11,8 @@ enum Pattern: __UINT8_TYPE__
     RAINDROPS
 }
 
-struct config{
+struct Config{
+    Pattern pattern;
     uint8_t color_rVal;
     uint8_t color_gVal;
     uint8_t color_bVal;
