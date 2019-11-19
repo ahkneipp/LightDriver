@@ -45,17 +45,55 @@ enum MenuState
    * Menu item to display the current LED pattern and allows the user to go to the select state.
    */
   PATTERN,
+  /**
+   * Allows the user to select which pattern they want active
+   */
   PATTERN_SELECT,
+  /**
+   * Shows the current color and allows the user to change to another color
+   */
   COLOR,
+  /**
+   * Allows the user to select a preset color
+   */
   COLOR_SEL_PRESET,
+  /**
+   * Allows the user to set the red value for the current color
+   */
   COLOR_SEL_RED,
+  /**
+   * Allows the user to set the green value for the current color.
+   */
   COLOR_SEL_GREEN,
+  /**
+   * Allows the user to set the blue value for the current color.
+   */
   COLOR_SEL_BLUE,
+  /**
+   * Shows the current brightness and allows the user to adjust it
+   */
   BRIGHTNESS,
+  /**
+   * Allows the user to set the current brightness
+   */
   BRIGHTNESS_SELECT,
+  /**
+   * Allows the user to change to another or save a preset value
+   */
   PRESET,
+  /**
+   * Allows the user to select a preset to load
+   */
   PRESET_SELECT,
+  PRESET_CHOOSE,
+  /**
+   * Allows the user to save the current state to a preset
+   */
   PRESET_SAVE,
+  PRESET_SAVE_CHOOSE,
+  /**
+   * Saves the current state, shuts everything down, and waits for a human input to wake up again
+   */
   POWEROFF
 };
 MenuState currentState = WELCOME;
@@ -63,6 +101,7 @@ MenuState nextState = WELCOME;
 
 bool prevButtonValue;
 bool currentButtonValue;
+bool buttonPressed = false;
 unsigned long int timeOfLastPrint = 0;
 unsigned long int timeOfLastPress = 0;
 
@@ -74,7 +113,7 @@ void loop()
   currentButtonValue = digitalRead(ROTENC_BTN) == HIGH ? true : false;
   if(currentButtonValue && currentButtonValue != prevButtonValue)
   {
-    Serial.println("BtnPressed");
+    buttonPressed = true;
     timeOfLastPress = millis();
   }
   prevButtonValue = currentButtonValue;
@@ -88,22 +127,106 @@ void loop()
   }
 }
 
+const int STARTUP_TIME = 5000;
+const int NUM_PRESETS = 10;
+int presetChoice = 0;
+
 void runStateMachine()
 {
   switch(currentState)
   {
     case WELCOME:
       text = "Welcome!";
-      if(millis() > 5000)
+      if(millis() > STARTUP_TIME)
+      {
+        currentState = MENUITEM_SETUP;
+        nextState = PRESET;
+      }
+    break;
+    case MENUITEM_SETUP:
+      storedEncPos = encPos;
+      currentState = nextState;
+    break;
+    case PRESET:
+      if(buttonPressed)
+      {
+        buttonPressed = false;
+        currentState = MENUITEM_SETUP;
+        nextState = PRESET_SELECT;
+      }
+      if(encPos > storedEncPos)
       {
         currentState = MENUITEM_SETUP;
         nextState = PATTERN;
       }
-      break;
-    case MENUITEM_SETUP:
-      storedEncPos = encPos;
-      currentState = nextState;
-      break;
+      if(encPos < storedEncPos)
+      {
+        currentState = MENUITEM_SETUP;
+        nextState = BRIGHTNESS;
+      }
+    break;
+    case PRESET_SELECT:
+      if(buttonPressed)
+      {
+        buttonPressed = false;
+        presetChoice = 0;
+        currentState = MENUITEM_SETUP;
+        nextState = PRESET_CHOOSE;
+      }
+      if(encPos != storedEncPos)
+      {
+        currentState = MENUITEM_SETUP;
+        nextState = PRESET_SAVE;
+      }
+    break;
+    case PRESET_CHOOSE:
+      if(buttonPressed)
+      {
+        buttonPressed = false;
+        //TODO load the preset from EEPROM
+        currentState = MENUITEM_SETUP;
+        nextState = PRESET;
+      }
+      if(encPos > storedEncPos)
+      {
+        presetChoice = (presetChoice + 1) % NUM_PRESETS;
+      }
+      else if (encPos < storedEncPos)
+      {
+        presetChoice = (presetChoice - 1) % NUM_PRESETS;
+      }
+    break;
+    case PRESET_SAVE:
+      if(buttonPressed)
+      {
+        buttonPressed = false;
+        currentState = MENUITEM_SETUP;
+        nextState = PRESET_SAVE_CHOOSE;
+        presetChoice = 0;
+      }
+      if(encPos != storedEncPos)
+      {
+        currentState = MENUITEM_SETUP;
+        nextState = PRESET_SELECT;
+      }
+    break;
+    case PRESET_SAVE_CHOOSE:
+      if(buttonPressed)
+      {
+        buttonPressed = false;
+        //TODO save the current configuration to EEPROM
+        currentState = MENUITEM_SETUP;
+        nextState = PRESET;
+      }
+      if(encPos > storedEncPos)
+      {
+        presetChoice = (presetChoice + 1) % NUM_PRESETS;
+      }
+      else if (encPos < storedEncPos)
+      {
+        presetChoice = (presetChoice - 1) % NUM_PRESETS;
+      }
+    break;
     case PATTERN:
       text = "Select Pattern";
       if(encPos > storedEncPos)
@@ -114,35 +237,47 @@ void runStateMachine()
       if(encPos < storedEncPos)
       {
         currentState = MENUITEM_SETUP;
-        nextState = BRIGHTNESS;
+        nextState = PRESET;
       }
-      break;
+    break;
     case COLOR:
       text = "Select Color";
       if(encPos > storedEncPos)
       {
         currentState = MENUITEM_SETUP;
-        nextState = BRIGHTNESS;
+        nextState = POWEROFF;
       }
       if(encPos < storedEncPos)
       {
         currentState = MENUITEM_SETUP;
         nextState = PATTERN;
       }
-      break;
-    case BRIGHTNESS:
-      text = "Select Brightness";
+    break;
+    case POWEROFF:
       if(encPos > storedEncPos)
       {
         currentState = MENUITEM_SETUP;
-        nextState = PATTERN;
+        nextState = BRIGHTNESS;
       }
       if(encPos < storedEncPos)
       {
         currentState = MENUITEM_SETUP;
         nextState = COLOR;
       }
-      break;
+    break;
+    case BRIGHTNESS:
+      text = "Brightness";
+      if(encPos > storedEncPos)
+      {
+        currentState = MENUITEM_SETUP;
+        nextState = PRESET;
+      }
+      if(encPos < storedEncPos)
+      {
+        currentState = MENUITEM_SETUP;
+        nextState = POWEROFF;
+      }
+    break;
   }
 
 }
