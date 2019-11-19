@@ -95,7 +95,8 @@ enum MenuState
   /**
    * Saves the current state, shuts everything down, and waits for a human input to wake up again
    */
-  POWEROFF
+  POWEROFF,
+  WAIT_IN_SHUTDOWN
 };
 MenuState currentState = WELCOME;
 MenuState nextState = WELCOME;
@@ -109,7 +110,7 @@ unsigned long int timeOfLastPress = 0;
 char* text = "Welcome";
 int storedEncPos = 0;
 
-//TODO initialize this from shutdown EEPROM in void setup
+//TODO initialize this from shutdown EEPROM in WELCOME state
 Config conf;
 
 void loop()
@@ -140,6 +141,7 @@ void runStateMachine()
   switch(currentState)
   {
     case WELCOME:
+      //TODO make sure the LEDs and the LCD are turned on
       text = "Welcome!";
       if(millis() > STARTUP_TIME)
       {
@@ -194,10 +196,12 @@ void runStateMachine()
       if(encPos > storedEncPos)
       {
         presetChoice = (presetChoice + 1) % NUM_PRESETS;
+        storedEncPos = encPos;
       }
       else if (encPos < storedEncPos)
       {
         presetChoice = (presetChoice - 1) % NUM_PRESETS;
+        storedEncPos = encPos;
       }
     break;
     case PRESET_SAVE:
@@ -225,10 +229,12 @@ void runStateMachine()
       if(encPos > storedEncPos)
       {
         presetChoice = (presetChoice + 1) % NUM_PRESETS;
+        storedEncPos = encPos;
       }
       else if (encPos < storedEncPos)
       {
         presetChoice = (presetChoice - 1) % NUM_PRESETS;
+        storedEncPos = encPos;
       }
     break;
     case PATTERN:
@@ -260,14 +266,29 @@ void runStateMachine()
       if(encPos > storedEncPos)
       {
         conf.pattern = getNextPattern(conf.pattern);
+        storedEncPos = encPos;
       }
       if(encPos < storedEncPos)
       {
         conf.pattern = getPrevPattern(conf.pattern);
+        storedEncPos = encPos;
       }
     break;
     case COLOR:
       text = "Select Color";
+      if(buttonPressed)
+      {
+        buttonPressed = false;
+        currentState = MENUITEM_SETUP;
+        if(conf.color.name == NULL)
+        {
+          nextState = COLOR_SEL_RED;
+        }
+        else
+        {
+          nextState = COLOR_SEL_PRESET;
+        }
+      }
       if(encPos > storedEncPos)
       {
         currentState = MENUITEM_SETUP;
@@ -279,7 +300,87 @@ void runStateMachine()
         nextState = PATTERN;
       }
     break;
+    case COLOR_SEL_PRESET:
+      if(buttonPressed)
+      {
+        buttonPressed = false;
+        currentState = MENUITEM_SETUP;
+        nextState = COLOR;
+      }
+      if(encPos > storedEncPos)
+      {
+        conf.color = getPresetColor(getNextColorName(conf.color.name));
+        storedEncPos = encPos;
+      }
+      if(encPos < storedEncPos)
+      {
+        conf.color = getPresetColor(getPrevColorName(conf.color.name));
+        storedEncPos = encPos;
+      }
+    break;
+    case COLOR_SEL_RED:
+      if(buttonPressed)
+      {
+        buttonPressed = false;
+        currentState = MENUITEM_SETUP;
+        nextState = COLOR_SEL_GREEN;
+      }
+      if(encPos > storedEncPos)
+      {
+        conf.color.color_rVal++;
+        storedEncPos = encPos;
+      }
+      if(encPos < storedEncPos)
+      {
+        conf.color.color_rVal--;
+        storedEncPos = encPos;
+      }
+    break;
+    case COLOR_SEL_GREEN:
+      if(buttonPressed)
+      {
+        buttonPressed = false;
+        currentState = MENUITEM_SETUP;
+        nextState = COLOR_SEL_BLUE;
+      }
+      if(encPos > storedEncPos)
+      {
+        conf.color.color_gVal++;
+        storedEncPos = encPos;
+      }
+      if(encPos < storedEncPos)
+      {
+        conf.color.color_gVal--;
+        storedEncPos = encPos;
+      }
+    break;
+    case COLOR_SEL_BLUE:
+      if(buttonPressed)
+      {
+        buttonPressed = false;
+        conf.color.name = NULL;
+        currentState = MENUITEM_SETUP;
+        nextState = COLOR;
+      }
+      if(encPos > storedEncPos)
+      {
+        conf.color.color_bVal++;
+        storedEncPos = encPos;
+      }
+      if(encPos < storedEncPos)
+      {
+        conf.color.color_bVal--;
+        storedEncPos = encPos;
+      }
+    break;
     case POWEROFF:
+      if(buttonPressed)
+      {
+        buttonPressed = false;
+        //TODO shut down the lights, store the current config, shut down the display
+        currentState = MENUITEM_SETUP;
+        nextState = WAIT_IN_SHUTDOWN;
+      }
       if(encPos > storedEncPos)
       {
         currentState = MENUITEM_SETUP;
@@ -293,6 +394,12 @@ void runStateMachine()
     break;
     case BRIGHTNESS:
       text = "Brightness";
+      if(buttonPressed)
+      {
+        buttonPressed = false;
+        currentState = MENUITEM_SETUP;
+        nextState = BRIGHTNESS_SELECT;
+      }
       if(encPos > storedEncPos)
       {
         currentState = MENUITEM_SETUP;
@@ -303,6 +410,34 @@ void runStateMachine()
         currentState = MENUITEM_SETUP;
         nextState = POWEROFF;
       }
+    break;
+    case BRIGHTNESS_SELECT:
+      if(buttonPressed)
+      {
+        buttonPressed = false;
+        currentState = MENUITEM_SETUP;
+        nextState = BRIGHTNESS;
+      }
+      if(encPos > storedEncPos)
+      {
+        conf.brightness++;
+        storedEncPos = encPos;
+      }
+      if(encPos < storedEncPos)
+      {
+        conf.brightness--;
+        storedEncPos = encPos;
+      }
+    break;
+    case WAIT_IN_SHUTDOWN:
+      //On any human interaction, zero everything and go back to start
+      if(encPos != storedEncPos || buttonPressed)
+      {
+        encPos = 0;
+        storedEncPos = 0;
+        buttonPressed = false;
+        currentState = WELCOME;
+      } 
     break;
   }
 

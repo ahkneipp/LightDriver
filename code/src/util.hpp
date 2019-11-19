@@ -3,7 +3,7 @@
 
 #include "stdint.h"
 
-enum Pattern: __UINT8_TYPE__
+enum Pattern:uint8_t 
 {
     FIRE,
     SOLID,
@@ -13,15 +13,27 @@ enum Pattern: __UINT8_TYPE__
     RAINDROPS
 };
 
-struct Config{
-    Pattern pattern;
+extern const char* COLOR_PRESETS[6];
+
+struct Color
+{
+    char* name;
     uint8_t color_rVal;
     uint8_t color_gVal;
     uint8_t color_bVal;
+};
+
+struct Config{
+    Pattern pattern;
+    struct Color color;
     uint8_t brightness;
 };
 
 Pattern getNextPattern(Pattern currentPattern);
 Pattern getPrevPattern(Pattern currentPattern);
+
+struct Color getPresetColor(const char* name);
+const char* getNextColorName(const char* name);
+const char* getPrevColorName(const char* name);
 
 #endif //UTIL_HPP
