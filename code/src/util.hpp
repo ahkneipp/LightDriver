@@ -1,6 +1,8 @@
 #ifndef UTIL_HPP
 #define UTIL_HPP
 
+#include "stdint.h"
+
 enum Pattern: __UINT8_TYPE__
 {
     FIRE,
@@ -18,5 +20,8 @@ struct Config{
     uint8_t color_bVal;
     uint8_t brightness;
 };
+
+Pattern getNextPattern(Pattern currentPattern);
+Pattern getPrevPattern(Pattern currentPattern);
 
 #endif //UTIL_HPP

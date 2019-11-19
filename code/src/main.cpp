@@ -233,6 +233,12 @@ void runStateMachine()
     break;
     case PATTERN:
       text = "Select Pattern";
+      if(buttonPressed)
+      {
+        buttonPressed = false;
+        currentState = MENUITEM_SETUP;
+        nextState = PATTERN_SELECT;
+      }
       if(encPos > storedEncPos)
       {
         currentState = MENUITEM_SETUP;
@@ -242,6 +248,22 @@ void runStateMachine()
       {
         currentState = MENUITEM_SETUP;
         nextState = PRESET;
+      }
+    break;
+    case PATTERN_SELECT:
+      if(buttonPressed)
+      {
+        buttonPressed = false;
+        currentState = MENUITEM_SETUP;
+        nextState = PATTERN;
+      }
+      if(encPos > storedEncPos)
+      {
+        conf.pattern = getNextPattern(conf.pattern);
+      }
+      if(encPos < storedEncPos)
+      {
+        conf.pattern = getPrevPattern(conf.pattern);
       }
     break;
     case COLOR:
