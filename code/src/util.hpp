@@ -9,7 +9,7 @@ enum Pattern: __UINT8_TYPE__
     MARQUEE_OUT,
     MARQUEE_IN,
     RAINDROPS
-}
+};
 
 struct Config{
     Pattern pattern;
@@ -17,6 +17,6 @@ struct Config{
     uint8_t color_gVal;
     uint8_t color_bVal;
     uint8_t brightness;
-}
+};
 
 #endif //UTIL_HPP

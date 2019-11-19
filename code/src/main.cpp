@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <LCD.h>
+#include "util.hpp"
 #include <LiquidCrystal_I2C.h>
 
 LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
@@ -107,6 +108,9 @@ unsigned long int timeOfLastPress = 0;
 
 char* text = "Welcome";
 int storedEncPos = 0;
+
+//TODO initialize this from shutdown EEPROM in void setup
+Config conf;
 
 void loop()
 {
