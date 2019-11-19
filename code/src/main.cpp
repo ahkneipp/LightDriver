@@ -21,18 +21,29 @@ void encBLow_ISR();
 
 void setup()
 {
+  //Serial for debugging purposes
   Serial.begin(9600);
+  //Setup the rotary encoder pins
   pinMode(ROTENC_BTN, INPUT);
   pinMode(ROTENC_A, INPUT);
   pinMode(ROTENC_B, INPUT);
+  //Setup the rotary encoder interrupts for counting the ticks
   attachInterrupt(digitalPinToInterrupt(ROTENC_A), encALow_ISR, FALLING);
   attachInterrupt(digitalPinToInterrupt(ROTENC_B), encBLow_ISR, FALLING);
 }
 
 enum MenuState
 {
+  //Power up welcome screen
   WELCOME,
+  /**
+   * Setup state to record the current state of the rotary encoder so we know when and where to move in the menus.
+   * Requires nextState to be set so it knows where to move next.
+   */
   MENUITEM_SETUP,
+  /**
+   * Menu item to display the current LED pattern and allows the user to go to the select state.
+   */
   PATTERN,
   PATTERN_SELECT,
   COLOR,
