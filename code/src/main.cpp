@@ -1,10 +1,14 @@
 #include <Arduino.h>
-#include <Wire.h>
-#include <LCD.h>
 #include "util.hpp"
-#include <LiquidCrystal_I2C.h>
+#include <Adafruit_NeoPixel.h>
+#include <LiquidCrystal_PCF8574.h>
+#include <Wire.h>
 
-LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
+#define NUMPIXELS 12
+#define NEOPIXEL_PIN 6
+
+LiquidCrystal_PCF8574 lcd(0x27);
+Adafruit_NeoPixel pxl(NUMPIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 #define ROTENC_BTN        4
 #define ROTENC_A          2
@@ -19,11 +23,35 @@ const int debounceConst = 50;
 
 void encALow_ISR();
 void encBLow_ISR();
+void runLedFromConfig(struct Config c);
+void printStringToLCD(LiquidCrystal_I2C* lcd, char* str);
 
 void setup()
 {
-  //Serial for debugging purposes
-  Serial.begin(9600);
+  int error;
+
+  Serial.begin(115200);
+  Serial.println("LCD...");
+
+  Serial.println("Dose: check for LCD");
+
+  // See http://playground.arduino.cc/Main/I2cScanner how to test for a I2C device.
+  Wire.begin();
+  Wire.beginTransmission(0x27);
+  error = Wire.endTransmission();
+  Serial.print("Error: ");
+  Serial.print(error);
+
+  if (error == 0) {
+    Serial.println(": LCD found.");
+    lcd.begin(16, 2); // initialize the lcd
+
+  } else {
+    Serial.println(": LCD not found.");
+  } // if
+
+  pxl.begin();
+  lcd.begin(16,2);
   //Setup the rotary encoder pins
   pinMode(ROTENC_BTN, INPUT);
   pinMode(ROTENC_A, INPUT);
@@ -31,6 +59,14 @@ void setup()
   //Setup the rotary encoder interrupts for counting the ticks
   attachInterrupt(digitalPinToInterrupt(ROTENC_A), encALow_ISR, FALLING);
   attachInterrupt(digitalPinToInterrupt(ROTENC_B), encBLow_ISR, FALLING);
+
+  //Set up the neopixel strip by turning everything off
+  pxl.show();
+  lcd.home ();                   // go home
+  lcd.print("Hello, ARDUINO ");
+  lcd.setCursor ( 0, 1 );        // go to the next line
+  lcd.print (" WORLD!");
+  Serial.println("Sanity Check");
 }
 
 enum MenuState
@@ -98,6 +134,7 @@ enum MenuState
   POWEROFF,
   WAIT_IN_SHUTDOWN
 };
+
 MenuState currentState = WELCOME;
 MenuState nextState = WELCOME;
 
@@ -111,7 +148,15 @@ char* text = "Welcome";
 int storedEncPos = 0;
 
 //TODO initialize this from shutdown EEPROM in WELCOME state
-Config conf;
+Config conf =
+{
+    FIRE,
+    {
+        (char*) "default",
+        128, 20, 100
+    },
+    255
+};
 
 void loop()
 {
@@ -120,14 +165,16 @@ void loop()
   {
     buttonPressed = true;
     timeOfLastPress = millis();
+      lcd.home ();                   // go home
+      lcd.print("Hello, ARDUINO ");
+      lcd.setCursor ( 0, 1 );        // go to the next line
+      lcd.print (" WORLD!");
   }
   prevButtonValue = currentButtonValue;
+  runLedFromConfig(conf);
 
   if( (millis() - timeOfLastPress) > 500)
   {
-    Serial.println();
-    Serial.println(text);
-    Serial.println();
     timeOfLastPress = millis();
   }
 }
@@ -135,6 +182,28 @@ void loop()
 const int STARTUP_TIME = 5000;
 const int NUM_PRESETS = 10;
 int presetChoice = 0;
+
+void runLedFromConfig(struct Config c)
+{
+    //TODO pattern
+    for(int i = 0; i < NUMPIXELS; i++)
+    {
+        pxl.setPixelColor(i, pxl.Color(c.color.color_rVal, c.color.color_gVal, c.color.color_bVal));
+    }
+    pxl.setBrightness(c.brightness);
+    pxl.show();
+}
+
+void printStringToLCD(LiquidCrystal_I2C* lcd, char* str)
+{
+    //lcd->clear();
+    lcd->home();
+    int len = strlen(str);
+    lcd->print(str);
+    for(int i = 0; i < len; i++)
+    {
+    }
+}
 
 void runStateMachine()
 {
@@ -437,7 +506,7 @@ void runStateMachine()
         storedEncPos = 0;
         buttonPressed = false;
         currentState = WELCOME;
-      } 
+      }
     break;
   }
 

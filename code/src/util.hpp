@@ -2,15 +2,17 @@
 #define UTIL_HPP
 
 #include "stdint.h"
+#include <string.h>
 
-enum Pattern:uint8_t 
+#define MAX_PATTERN 5
+enum Pattern:uint8_t
 {
-    FIRE,
-    SOLID,
-    MARQUEE,
-    MARQUEE_OUT,
-    MARQUEE_IN,
-    RAINDROPS
+    FIRE = 0,
+    SOLID = 1,
+    MARQUEE = 2,
+    MARQUEE_OUT = 3,
+    MARQUEE_IN = 4,
+    RAINDROPS = 5
 };
 
 extern const char* COLOR_PRESETS[6];
