@@ -47,7 +47,7 @@ const char* getPatternName(Pattern currentPattern)
         case MARQUEE_IN:
             return "Marquee In";
         case RAINDROPS:
-            return "Raindrops";
+            return "Water";
         default:
             return "Unknown";
     }

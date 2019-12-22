@@ -248,9 +248,9 @@ void initFire(struct Config c)
     //We grabbed all the fire code from https://www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
 }
 
-const static int FIRE_COOLING = 7;
-const static int FIRE_SPARKING = 20;
-const static int FIRE_TIME_DELAY = 30;
+const static int FIRE_COOLING = 50;
+const static int FIRE_SPARKING = 50;
+const static int FIRE_TIME_DELAY = 5;
 
 void runFire(Adafruit_NeoPixel& pixels, struct Config c)
 {
@@ -297,11 +297,105 @@ void runSolid(Adafruit_NeoPixel& pixels, struct Config c)
     lastUpdateTimeMillis = millis();
 }
 
+static boolean waterInitialized = false;
+
+static void raindrops(struct Config c, int drainage, int strength)
+{
+    //This kind of mimics fire, but the sources can come from anywhere and spread out is quick
+    static byte waterLevel[NUMPIXELS];
+    //If we havent intialized our static array or want to reinitialize it, set everything to 0
+    if(!waterInitialized)
+    {
+        for(int i = 0; i < NUMPIXELS; i++)
+        {
+            waterLevel[i] = 0;
+        }
+    }
+
+    //Drain each cell a little. Pretty much ripped straight out of fire
+    int drain;
+    for( int i = 0; i < NUMPIXELS; i++)
+    {
+        drain = random(0, ((drainage * 10)) + 2);
+
+        if(drain > waterLevel[i])
+        {
+            waterLevel[i]=0;
+        }
+        else
+        {
+            waterLevel[i]=waterLevel[i]-drain;
+        }
+    }
+
+    int leftDiff;
+    int rightDiff;
+    for(int i = 0; i < NUMPIXELS; i++)
+    {
+        leftDiff = 0;
+        rightDiff = 0;
+        if(i - 1 > 0)
+        {
+            leftDiff = waterLevel[i] - waterLevel[i-1];
+        }
+        if(i+1 < NUMPIXELS)
+        {
+            rightDiff = waterLevel[i] - waterLevel[i+1];
+        }
+        if(leftDiff > 3)
+        {
+            waterLevel[i-1] += leftDiff/4;
+            waterLevel[i] -= leftDiff/4;
+        }
+        if(rightDiff > 3)
+        {
+            waterLevel[i+1] += rightDiff/4;
+            waterLevel[i] -= rightDiff/4;
+        }
+    }
+
+    int dropValue;
+    for(int i = 0; i < NUMPIXELS; i++)
+    {
+        dropValue = random(0, (strength * 5));
+        if(dropValue >= 5)
+        {
+            waterLevel[i]+=100;
+        }
+    }
+    struct RGB tmp;
+    for(int i = 0; i < NUMPIXELS; i++)
+    {
+        int divider = map(waterLevel[i], 0, 255, 1, 10);
+        tmp.R = c.color.color_rVal / divider;
+        tmp.G = c.color.color_gVal / divider;
+        tmp.B = c.color.color_bVal / divider;
+        leds[i] = tmp;
+    }
+}
+
 void initRaindrops(struct Config c)
 {
     clearLeds();
+    waterInitialized = false;
 }
+
+static const int RAINDROP_DELAY = 10;
+static const int RAINDROP_DRAINAGE = 10;
+static const int RAINDROP_STRENGTH = 3;
+
 void runRaindrops(Adafruit_NeoPixel& pixels, struct Config c)
 {
-
+    if(millis() - lastUpdateTimeMillis < 50)
+    {
+        return;
+    }
+    raindrops(c, RAINDROP_DRAINAGE, RAINDROP_STRENGTH);
+    for(int i = 0; i < NUMPIXELS; i++)
+    {
+        pixels.setPixelColor(i, pixels.Color(leds[i].R, leds[i].G, leds[i].B));
+    }
+    pixels.setBrightness(c.brightness);
+    pixels.show();
+    lastUpdateTimeMillis = millis();
 }

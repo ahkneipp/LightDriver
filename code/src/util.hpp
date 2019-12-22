@@ -4,7 +4,7 @@
 #include "stdint.h"
 #include <string.h>
 
-#define NUMPIXELS 20
+#define NUMPIXELS 90
 
 #define MAX_PATTERN 5
 enum Pattern:uint8_t

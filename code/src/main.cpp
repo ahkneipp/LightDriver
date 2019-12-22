@@ -20,6 +20,8 @@ volatile unsigned long int timeoutTime;
 //Positive is CW, negative CCW
 volatile int encPos = 0;
 
+boolean lightsOn = false;
+
 const int debounceConst = 50;
 
 void encALow_ISR();
@@ -32,25 +34,10 @@ void setup()
 {
   int error;
 
-  Serial.begin(115200);
-  Serial.println("LCD...");
-
-  Serial.println("Dose: check for LCD");
-
   // See http://playground.arduino.cc/Main/I2cScanner how to test for a I2C device.
   Wire.begin();
   Wire.beginTransmission(0x27);
   error = Wire.endTransmission();
-  Serial.print("Error: ");
-  Serial.print(error);
-
-  if (error == 0) {
-    Serial.println(": LCD found.");
-    lcd.begin(16, 2); // initialize the lcd
-
-  } else {
-    Serial.println(": LCD not found.");
-  } // if
 
   pxl.begin();
   lcd.begin(16,2);
@@ -173,7 +160,14 @@ void loop()
   }
   prevButtonValue = currentButtonValue;
   runStateMachine();
-  runLedFromConfig(conf);
+  if(lightsOn)
+  {
+      runLedFromConfig(conf);
+    }
+    else {
+        pxl.clear();
+        pxl.show();
+    }
 
   // if( (millis() - timeOfLastPress) > 500)
   // {
@@ -236,6 +230,7 @@ void initLedFromConfig(struct Config c)
 }
 
 boolean printedForThisState = false;
+long unsigned int sysStartupTime = 0;
 
 void runStateMachine()
 {
@@ -243,7 +238,9 @@ void runStateMachine()
   {
     case WELCOME:
       //TODO make sure the LEDs and the LCD are turned on
+      lightsOn = true;
       lcd.setBacklight(255);
+      lcd.display();
       initLedFromConfig(conf);
       if (!printedForThisState)
       {
@@ -254,10 +251,10 @@ void runStateMachine()
           lcd.print("Welcome!");
           printedForThisState = true;
       }
-      if(millis() > STARTUP_TIME)
+      if(millis() - sysStartupTime > STARTUP_TIME)
       {
         currentState = MENUITEM_SETUP;
-        nextState = PRESET;
+        nextState = PATTERN;
       }
     break;
     case MENUITEM_SETUP:
@@ -440,7 +437,7 @@ void runStateMachine()
       if(encPos < storedEncPos)
       {
         currentState = MENUITEM_SETUP;
-        nextState = PRESET;
+        nextState = POWEROFF;
       }
     break;
     case PATTERN_SELECT:
@@ -614,7 +611,7 @@ void runStateMachine()
       if(encPos > storedEncPos)
       {
         currentState = MENUITEM_SETUP;
-        nextState = PRESET;
+        nextState = PATTERN;
       }
       if(encPos < storedEncPos)
       {
@@ -686,13 +683,24 @@ void runStateMachine()
       }
     break;
     case WAIT_IN_SHUTDOWN:
+        if(!printedForThisState)
+        {
+          lcd.clear();
+          lcd.home();
+          lcd.noDisplay();
+          lcd.setBacklight(0);
+          printedForThisState = true;
+        }
+        lightsOn = false;
       //On any human interaction, zero everything and go back to start
       if(encPos != storedEncPos || buttonPressed)
       {
         encPos = 0;
         storedEncPos = 0;
         buttonPressed = false;
-        currentState = WELCOME;
+        currentState = MENUITEM_SETUP;
+        nextState = WELCOME;
+        sysStartupTime = millis();
       }
     break;
   }
