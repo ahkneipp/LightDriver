@@ -1,26 +1,28 @@
 #include "util.hpp"
 
-const char* COLOR_PRESETS[6]= {
+const char* COLOR_PRESETS[NUM_COLORS]= {
     "Blue",
     "Red",
     "Green",
     "Orange",
     "Yellow",
-    "Purple"
+    "Purple",
+    "White"
 };
 
-static const Color COLOR_PRESET_STRUCTS[6] = {
+static const Color COLOR_PRESET_STRUCTS[NUM_COLORS] = {
     {COLOR_PRESETS[0], 0, 0, 255},
     {COLOR_PRESETS[1], 255, 0, 0},
     {COLOR_PRESETS[2], 0, 255, 0},
-    {COLOR_PRESETS[3], 252, 148, 0},
+    {COLOR_PRESETS[3], 255, 125, 0},
     {COLOR_PRESETS[4], 242, 240, 0},
     {COLOR_PRESETS[5], 186, 3, 252},
+    {COLOR_PRESETS[6], 255, 255, 255}
 };
 
 Pattern getNextPattern(Pattern currentPattern)
 {
-    return (currentPattern + 1) % MAX_PATTERN;
+    return (currentPattern + 1) % (MAX_PATTERN + 1);
 }
 Pattern getPrevPattern(Pattern currentPattern)
 {
@@ -28,6 +30,27 @@ Pattern getPrevPattern(Pattern currentPattern)
         return MAX_PATTERN;
     else
         return (uint8_t)currentPattern - 1;
+}
+
+const char* getPatternName(Pattern currentPattern)
+{
+    switch(currentPattern)
+    {
+        case FIRE:
+            return "Fire";
+        case SOLID:
+            return "Solid";
+        case MARQUEE:
+            return "Marquee";
+        case MARQUEE_OUT:
+            return "Marquee Out";
+        case MARQUEE_IN:
+            return "Marquee In";
+        case RAINDROPS:
+            return "Raindrops";
+        default:
+            return "Unknown";
+    }
 }
 
 struct Color getPresetColor(const char* name)
@@ -66,6 +89,6 @@ const char* getPrevColorName(const char* name)
         }
     }
     if(index == 0)
-        return COLOR_PRESETS[sizeof(COLOR_PRESETS)/sizeof(char*)];
+        return COLOR_PRESETS[NUM_COLORS-1];
     return COLOR_PRESETS[index - 1];
 }

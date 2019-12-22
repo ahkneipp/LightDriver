@@ -4,6 +4,8 @@
 #include "stdint.h"
 #include <string.h>
 
+#define NUMPIXELS 10
+
 #define MAX_PATTERN 5
 enum Pattern:uint8_t
 {
@@ -15,7 +17,9 @@ enum Pattern:uint8_t
     RAINDROPS = 5
 };
 
-extern const char* COLOR_PRESETS[6];
+#define NUM_COLORS 7
+
+extern const char* COLOR_PRESETS[NUM_COLORS];
 
 struct Color
 {
@@ -25,6 +29,8 @@ struct Color
     uint8_t color_bVal;
 };
 
+#define MAX_BRIGHTNESS 255;
+
 struct Config{
     Pattern pattern;
     struct Color color;
@@ -33,6 +39,7 @@ struct Config{
 
 Pattern getNextPattern(Pattern currentPattern);
 Pattern getPrevPattern(Pattern currentPattern);
+const char* getPatternName(Pattern currentPattern);
 
 struct Color getPresetColor(const char* name);
 const char* getNextColorName(const char* name);

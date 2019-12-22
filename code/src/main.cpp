@@ -3,8 +3,8 @@
 #include <Adafruit_NeoPixel.h>
 #include <LiquidCrystal_PCF8574.h>
 #include <Wire.h>
+#include "patterns.hpp"
 
-#define NUMPIXELS 12
 #define NEOPIXEL_PIN 6
 
 LiquidCrystal_PCF8574 lcd(0x27);
@@ -16,6 +16,7 @@ Adafruit_NeoPixel pxl(NUMPIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 volatile bool aTriggered = false;
 volatile bool bTriggered = false;
+volatile unsigned long int timeoutTime;
 //Positive is CW, negative CCW
 volatile int encPos = 0;
 
@@ -24,7 +25,8 @@ const int debounceConst = 50;
 void encALow_ISR();
 void encBLow_ISR();
 void runLedFromConfig(struct Config c);
-void printStringToLCD(LiquidCrystal_I2C* lcd, char* str);
+void printStringToLCD(LiquidCrystal_PCF8574* lcd, char* str);
+void runStateMachine();
 
 void setup()
 {
@@ -52,6 +54,7 @@ void setup()
 
   pxl.begin();
   lcd.begin(16,2);
+  lcd.setBacklight(100);
   //Setup the rotary encoder pins
   pinMode(ROTENC_BTN, INPUT);
   pinMode(ROTENC_A, INPUT);
@@ -150,11 +153,8 @@ int storedEncPos = 0;
 //TODO initialize this from shutdown EEPROM in WELCOME state
 Config conf =
 {
-    FIRE,
-    {
-        (char*) "default",
-        128, 20, 100
-    },
+    SOLID,
+    getPresetColor(COLOR_PRESETS[0]),
     255
 };
 
@@ -165,45 +165,77 @@ void loop()
   {
     buttonPressed = true;
     timeOfLastPress = millis();
-      lcd.home ();                   // go home
-      lcd.print("Hello, ARDUINO ");
-      lcd.setCursor ( 0, 1 );        // go to the next line
-      lcd.print (" WORLD!");
+  }
+  if(millis() > timeoutTime)
+  {
+      aTriggered = false;
+      bTriggered = false;
   }
   prevButtonValue = currentButtonValue;
+  runStateMachine();
   runLedFromConfig(conf);
 
-  if( (millis() - timeOfLastPress) > 500)
-  {
-    timeOfLastPress = millis();
-  }
+  // if( (millis() - timeOfLastPress) > 500)
+  // {
+  //   timeOfLastPress = millis();
+  // }
 }
 
-const int STARTUP_TIME = 5000;
+const int STARTUP_TIME = 500;
 const int NUM_PRESETS = 10;
 int presetChoice = 0;
 
 void runLedFromConfig(struct Config c)
 {
-    //TODO pattern
-    for(int i = 0; i < NUMPIXELS; i++)
+    switch(c.pattern)
     {
-        pxl.setPixelColor(i, pxl.Color(c.color.color_rVal, c.color.color_gVal, c.color.color_bVal));
+        case FIRE:
+            runFire(pxl, c);
+        break;
+        case SOLID:
+            runSolid(pxl, c);
+        break;
+        case MARQUEE:
+            runMarquee(pxl, c);
+        break;
+        case MARQUEE_OUT:
+            runMarqueeOut(pxl, c);
+        break;
+        case MARQUEE_IN:
+            runMarqueeIn(pxl, c);
+        break;
+        case RAINDROPS:
+            runRaindrops(pxl, c);
+        break;
     }
-    pxl.setBrightness(c.brightness);
-    pxl.show();
 }
 
-void printStringToLCD(LiquidCrystal_I2C* lcd, char* str)
+void initLedFromConfig(struct Config c)
 {
-    //lcd->clear();
-    lcd->home();
-    int len = strlen(str);
-    lcd->print(str);
-    for(int i = 0; i < len; i++)
+    switch(c.pattern)
     {
+        case FIRE:
+            initFire(c);
+        break;
+        case SOLID:
+            initSolid(c);
+        break;
+        case MARQUEE:
+            initMarquee(c);
+        break;
+        case MARQUEE_OUT:
+            initMarqueeOut(c);
+        break;
+        case MARQUEE_IN:
+            initMarqueeIn(c);
+        break;
+        case RAINDROPS:
+            initRaindrops(c);
+        break;
     }
 }
+
+boolean printedForThisState = false;
 
 void runStateMachine()
 {
@@ -211,7 +243,17 @@ void runStateMachine()
   {
     case WELCOME:
       //TODO make sure the LEDs and the LCD are turned on
-      text = "Welcome!";
+      lcd.setBacklight(255);
+      initLedFromConfig(conf);
+      if (!printedForThisState)
+      {
+          lcd.noBlink();
+          lcd.noCursor();
+          lcd.clear();
+          lcd.home();
+          lcd.print("Welcome!");
+          printedForThisState = true;
+      }
       if(millis() > STARTUP_TIME)
       {
         currentState = MENUITEM_SETUP;
@@ -219,10 +261,19 @@ void runStateMachine()
       }
     break;
     case MENUITEM_SETUP:
+        printedForThisState = false;
       storedEncPos = encPos;
       currentState = nextState;
     break;
     case PRESET:
+        if(!printedForThisState)
+        {
+          lcd.clear();
+          lcd.home();
+          lcd.noBlink();
+          lcd.print("Presets");
+          printedForThisState = true;
+        }
       if(buttonPressed)
       {
         buttonPressed = false;
@@ -241,6 +292,16 @@ void runStateMachine()
       }
     break;
     case PRESET_SELECT:
+        if(!printedForThisState)
+        {
+          lcd.clear();
+          lcd.home();
+          lcd.print("Presets");
+          lcd.setCursor(0,1);
+          lcd.print("Select");
+          lcd.blink();
+          printedForThisState = true;
+        }
       if(buttonPressed)
       {
         buttonPressed = false;
@@ -255,6 +316,17 @@ void runStateMachine()
       }
     break;
     case PRESET_CHOOSE:
+        if(!printedForThisState)
+        {
+          lcd.clear();
+          lcd.home();
+          lcd.print("Load Preset");
+          lcd.setCursor(0,1);
+          lcd.print("Preset ");
+          lcd.print(presetChoice);
+          lcd.blink();
+          printedForThisState = true;
+        }
       if(buttonPressed)
       {
         buttonPressed = false;
@@ -266,14 +338,33 @@ void runStateMachine()
       {
         presetChoice = (presetChoice + 1) % NUM_PRESETS;
         storedEncPos = encPos;
+        printedForThisState = false;
       }
       else if (encPos < storedEncPos)
       {
-        presetChoice = (presetChoice - 1) % NUM_PRESETS;
+        if(presetChoice == 0)
+        {
+            presetChoice = NUM_PRESETS-1;
+        }
+        else
+        {
+            presetChoice = (presetChoice - 1);
+        }
         storedEncPos = encPos;
+        printedForThisState = false;
       }
     break;
     case PRESET_SAVE:
+        if(!printedForThisState)
+        {
+          lcd.clear();
+          lcd.home();
+          lcd.print("Presets");
+          lcd.setCursor(0,1);
+          lcd.print("Save");
+          lcd.blink();
+          printedForThisState = true;
+        }
       if(buttonPressed)
       {
         buttonPressed = false;
@@ -288,6 +379,17 @@ void runStateMachine()
       }
     break;
     case PRESET_SAVE_CHOOSE:
+        if(!printedForThisState)
+        {
+          lcd.clear();
+          lcd.home();
+          lcd.print("Save Preset");
+          lcd.setCursor(0,1);
+          lcd.print("Preset ");
+          lcd.print(presetChoice);
+          lcd.blink();
+          printedForThisState = true;
+        }
       if(buttonPressed)
       {
         buttonPressed = false;
@@ -299,15 +401,31 @@ void runStateMachine()
       {
         presetChoice = (presetChoice + 1) % NUM_PRESETS;
         storedEncPos = encPos;
+          printedForThisState = false;
       }
       else if (encPos < storedEncPos)
       {
-        presetChoice = (presetChoice - 1) % NUM_PRESETS;
+        if (presetChoice == 0)
+        {
+            presetChoice = NUM_PRESETS - 1;
+        }
+        else
+        {
+            presetChoice--;
+        }
         storedEncPos = encPos;
+          printedForThisState = false;
       }
     break;
     case PATTERN:
-      text = "Select Pattern";
+        if(!printedForThisState)
+        {
+          lcd.clear();
+          lcd.home();
+          lcd.noBlink();
+          lcd.print("Pattern");
+          printedForThisState = true;
+        }
       if(buttonPressed)
       {
         buttonPressed = false;
@@ -326,6 +444,16 @@ void runStateMachine()
       }
     break;
     case PATTERN_SELECT:
+        if(!printedForThisState)
+        {
+          lcd.clear();
+          lcd.home();
+          lcd.blink();
+          lcd.print("Pattern");
+          lcd.setCursor(0, 1);
+          lcd.print(getPatternName(conf.pattern));
+          printedForThisState = true;
+        }
       if(buttonPressed)
       {
         buttonPressed = false;
@@ -335,16 +463,27 @@ void runStateMachine()
       if(encPos > storedEncPos)
       {
         conf.pattern = getNextPattern(conf.pattern);
+        initLedFromConfig(conf);
         storedEncPos = encPos;
+          printedForThisState = false;
       }
       if(encPos < storedEncPos)
       {
         conf.pattern = getPrevPattern(conf.pattern);
+        initLedFromConfig(conf);
         storedEncPos = encPos;
+          printedForThisState = false;
       }
     break;
     case COLOR:
-      text = "Select Color";
+        if(!printedForThisState)
+        {
+          lcd.clear();
+          lcd.home();
+          lcd.noBlink();
+          lcd.print("Color");
+          printedForThisState = true;
+        }
       if(buttonPressed)
       {
         buttonPressed = false;
@@ -361,7 +500,7 @@ void runStateMachine()
       if(encPos > storedEncPos)
       {
         currentState = MENUITEM_SETUP;
-        nextState = POWEROFF;
+        nextState = BRIGHTNESS;
       }
       if(encPos < storedEncPos)
       {
@@ -370,6 +509,16 @@ void runStateMachine()
       }
     break;
     case COLOR_SEL_PRESET:
+        if(!printedForThisState)
+        {
+          lcd.blink();
+          lcd.clear();
+          lcd.home();
+          lcd.print("Color");
+          lcd.setCursor(0, 1);
+          lcd.print(conf.color.name);
+          printedForThisState = true;
+        }
       if(buttonPressed)
       {
         buttonPressed = false;
@@ -379,12 +528,16 @@ void runStateMachine()
       if(encPos > storedEncPos)
       {
         conf.color = getPresetColor(getNextColorName(conf.color.name));
+        initLedFromConfig(conf);
         storedEncPos = encPos;
+          printedForThisState = false;
       }
       if(encPos < storedEncPos)
       {
         conf.color = getPresetColor(getPrevColorName(conf.color.name));
+        initLedFromConfig(conf);
         storedEncPos = encPos;
+          printedForThisState = false;
       }
     break;
     case COLOR_SEL_RED:
@@ -443,6 +596,14 @@ void runStateMachine()
       }
     break;
     case POWEROFF:
+        if(!printedForThisState)
+        {
+          lcd.clear();
+          lcd.home();
+          lcd.noBlink();
+          lcd.print("Poweroff");
+          printedForThisState = true;
+        }
       if(buttonPressed)
       {
         buttonPressed = false;
@@ -453,16 +614,23 @@ void runStateMachine()
       if(encPos > storedEncPos)
       {
         currentState = MENUITEM_SETUP;
-        nextState = BRIGHTNESS;
+        nextState = PRESET;
       }
       if(encPos < storedEncPos)
       {
         currentState = MENUITEM_SETUP;
-        nextState = COLOR;
+        nextState = BRIGHTNESS;
       }
     break;
     case BRIGHTNESS:
-      text = "Brightness";
+        if(!printedForThisState)
+        {
+          lcd.clear();
+          lcd.home();
+          lcd.noBlink();
+          lcd.print("Brightness");
+          printedForThisState = true;
+        }
       if(buttonPressed)
       {
         buttonPressed = false;
@@ -472,15 +640,25 @@ void runStateMachine()
       if(encPos > storedEncPos)
       {
         currentState = MENUITEM_SETUP;
-        nextState = PRESET;
+        nextState = POWEROFF;
       }
       if(encPos < storedEncPos)
       {
         currentState = MENUITEM_SETUP;
-        nextState = POWEROFF;
+        nextState = COLOR;
       }
     break;
     case BRIGHTNESS_SELECT:
+        if(!printedForThisState)
+        {
+          lcd.clear();
+          lcd.home();
+          lcd.blink();
+          lcd.print("Brightness");
+          lcd.setCursor(0, 1);
+          lcd.print(conf.brightness);
+          printedForThisState = true;
+        }
       if(buttonPressed)
       {
         buttonPressed = false;
@@ -489,13 +667,22 @@ void runStateMachine()
       }
       if(encPos > storedEncPos)
       {
-        conf.brightness++;
+        conf.brightness+=5;
         storedEncPos = encPos;
+          printedForThisState = false;
       }
       if(encPos < storedEncPos)
       {
-        conf.brightness--;
+          if(conf.brightness - 5 < 0)
+          {
+              conf.brightness = MAX_BRIGHTNESS;
+          }
+          else
+          {
+            conf.brightness-=5;
+          }
         storedEncPos = encPos;
+          printedForThisState = false;
       }
     break;
     case WAIT_IN_SHUTDOWN:
@@ -511,10 +698,10 @@ void runStateMachine()
   }
 
 }
-
 void encALow_ISR()
 {
   aTriggered = true;
+  timeoutTime = millis() + 75;
   if(bTriggered)
   {
     encPos--;
@@ -526,6 +713,7 @@ void encALow_ISR()
 void encBLow_ISR()
 {
   bTriggered = true;
+  timeoutTime = millis() + 75;
   if(aTriggered)
   {
     encPos++;
