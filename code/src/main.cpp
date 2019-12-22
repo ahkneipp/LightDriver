@@ -69,7 +69,7 @@ void setup()
   lcd.print("Hello, ARDUINO ");
   lcd.setCursor ( 0, 1 );        // go to the next line
   lcd.print (" WORLD!");
-  Serial.println("Sanity Check");
+  randomSeed(analogRead(A0));
 }
 
 enum MenuState
